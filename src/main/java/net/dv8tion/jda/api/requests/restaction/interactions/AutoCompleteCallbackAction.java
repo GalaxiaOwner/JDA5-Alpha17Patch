@@ -21,7 +21,6 @@ import net.dv8tion.jda.api.interactions.commands.Command;
 import net.dv8tion.jda.api.interactions.commands.CommandAutoCompleteInteraction;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
-import net.dv8tion.jda.api.requests.FluentRestAction;
 import net.dv8tion.jda.internal.utils.Checks;
 
 import javax.annotation.CheckReturnValue;
@@ -37,7 +36,7 @@ import java.util.stream.Collectors;
  * @see IAutoCompleteCallback
  * @see CommandAutoCompleteInteraction
  */
-public interface AutoCompleteCallbackAction extends InteractionCallbackAction<Void>, FluentRestAction<Void, AutoCompleteCallbackAction>
+public interface AutoCompleteCallbackAction extends InteractionCallbackAction<Void>
 {
     /**
      * The {@link OptionType} of the choices you can suggest.

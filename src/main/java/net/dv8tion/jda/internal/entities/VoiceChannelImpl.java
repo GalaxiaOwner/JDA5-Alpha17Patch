@@ -18,7 +18,6 @@ package net.dv8tion.jda.internal.entities;
 
 import gnu.trove.map.TLongObjectMap;
 import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.Region;
 import net.dv8tion.jda.api.entities.*;
 import net.dv8tion.jda.api.managers.channel.concrete.VoiceChannelManager;
 import net.dv8tion.jda.api.requests.restaction.ChannelAction;
@@ -111,16 +110,8 @@ public class VoiceChannelImpl extends AbstractStandardGuildChannelImpl<VoiceChan
     public ChannelAction<VoiceChannel> createCopy(@Nonnull Guild guild)
     {
         Checks.notNull(guild, "Guild");
-
-        ChannelAction<VoiceChannel> action = guild.createVoiceChannel(name)
-                .setBitrate(bitrate)
-                .setUserlimit(userLimit);
-
-        if (region != null)
-        {
-            action.setRegion(Region.fromKey(region));
-        }
-
+        //TODO-v5: .setRegion here?
+        ChannelAction<VoiceChannel> action = guild.createVoiceChannel(name).setBitrate(bitrate).setUserlimit(userLimit);
         if (guild.equals(getGuild()))
         {
             Category parent = getParentCategory();
