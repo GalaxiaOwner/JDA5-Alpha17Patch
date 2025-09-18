@@ -164,11 +164,11 @@ public interface Message extends ISnowflake, Formattable
      */
     int MAX_CONTENT_LENGTH = 2000;
 
-   /**
-    * The maximum amount of reactions that can be added to one message ({@value})
-    *
-    * @see Message#addReaction(Emoji)
-    */
+    /**
+     * The maximum amount of reactions that can be added to one message ({@value})
+     *
+     * @see Message#addReaction(Emoji)
+     */
     int MAX_REACTIONS = 20;
 
     /**
@@ -196,10 +196,10 @@ public interface Message extends ISnowflake, Formattable
      */
     Pattern INVITE_PATTERN = Pattern.compile(
             "(?:https?://)?" +                     // Scheme
-            "(?:\\w+\\.)?" +                       // Subdomain
-            "discord(?:(?:app)?\\.com" +           // Discord domain
-            "/invite|\\.gg)/(?<code>[a-z0-9-]+)" + // Path
-            "(?:\\?\\S*)?(?:#\\S*)?",              // Useless query or URN appendix
+                    "(?:\\w+\\.)?" +                       // Subdomain
+                    "discord(?:(?:app)?\\.com" +           // Discord domain
+                    "/invite|\\.gg)/(?<code>[a-z0-9-]+)" + // Path
+                    "(?:\\?\\S*)?(?:#\\S*)?",              // Useless query or URN appendix
             Pattern.CASE_INSENSITIVE);
 
     /**
@@ -241,10 +241,10 @@ public interface Message extends ISnowflake, Formattable
      */
     Pattern JUMP_URL_PATTERN = Pattern.compile(
             "(?:https?://)?" +                                             // Scheme
-            "(?:\\w+\\.)?" +                                               // Subdomain
-            "discord(?:app)?\\.com" +                                      // Discord domain
-            "/channels/(?<guild>\\d+)/(?<channel>\\d+)/(?<message>\\d+)" + // Path
-            "(?:\\?\\S*)?(?:#\\S*)?",                                      // Useless query or URN appendix
+                    "(?:\\w+\\.)?" +                                               // Subdomain
+                    "discord(?:app)?\\.com" +                                      // Discord domain
+                    "/channels/(?<guild>\\d+)/(?<channel>\\d+)/(?<message>\\d+)" + // Path
+                    "(?:\\?\\S*)?(?:#\\S*)?",                                      // Useless query or URN appendix
             Pattern.CASE_INSENSITIVE);
 
     /**
@@ -2195,8 +2195,8 @@ public interface Message extends ISnowflake, Formattable
         public static EnumSet<MessageFlag> fromBitField(int bitfield)
         {
             Set<MessageFlag> set = Arrays.stream(MessageFlag.values())
-                .filter(e -> (e.value & bitfield) > 0)
-                .collect(Collectors.toSet());
+                    .filter(e -> (e.value & bitfield) > 0)
+                    .collect(Collectors.toSet());
             return set.isEmpty() ? EnumSet.noneOf(MessageFlag.class) : EnumSet.copyOf(set);
         }
 
@@ -2398,20 +2398,20 @@ public interface Message extends ISnowflake, Formattable
             Request req = getRequest();
             OkHttpClient httpClient = getJDA().getHttpClient();
             httpClient.newCall(req).enqueue(FunctionalCallback
-                .onFailure((call, e) -> future.completeExceptionally(new UncheckedIOException(e)))
-                .onSuccess((call, response) -> {
-                    if (response.isSuccessful())
-                    {
-                        InputStream body = IOUtil.getBody(response);
-                        if (!future.complete(body))
+                    .onFailure((call, e) -> future.completeExceptionally(new UncheckedIOException(e)))
+                    .onSuccess((call, response) -> {
+                        if (response.isSuccessful())
+                        {
+                            InputStream body = IOUtil.getBody(response);
+                            if (!future.complete(body))
+                                IOUtil.silentClose(response);
+                        }
+                        else
+                        {
+                            future.completeExceptionally(new HttpException(response.code() + ": " + response.message()));
                             IOUtil.silentClose(response);
-                    }
-                    else
-                    {
-                        future.completeExceptionally(new HttpException(response.code() + ": " + response.message()));
-                        IOUtil.silentClose(response);
-                    }
-                }).build());
+                        }
+                    }).build());
             return future;
         }
 
@@ -2610,10 +2610,10 @@ public interface Message extends ISnowflake, Formattable
         protected Request getRequest()
         {
             return new Request.Builder()
-                .url(getUrl())
-                .addHeader("user-agent", Requester.USER_AGENT)
-                .addHeader("accept-encoding", "gzip, deflate")
-                .build();
+                    .url(getUrl())
+                    .addHeader("user-agent", Requester.USER_AGENT)
+                    .addHeader("accept-encoding", "gzip, deflate")
+                    .build();
         }
 
         /**

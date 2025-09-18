@@ -657,7 +657,7 @@ public interface MessageChannel extends Channel, Formattable
     {
         Checks.notNull(file, "file");
         Checks.check(file.exists() && file.canRead(),
-                    "Provided file doesn't exist or cannot be read!");
+                "Provided file doesn't exist or cannot be read!");
         Checks.notNull(fileName, "fileName");
 
         try
@@ -839,7 +839,7 @@ public interface MessageChannel extends Channel, Formattable
         JDAImpl jda = (JDAImpl) getJDA();
         Route.CompiledRoute route = Route.Messages.GET_MESSAGE.compile(getId(), messageId);
         return new RestActionImpl<>(jda, route,
-            (response, request) -> jda.getEntityBuilder().createMessageWithChannel(response.getObject(), MessageChannel.this, false));
+                (response, request) -> jda.getEntityBuilder().createMessageWithChannel(response.getObject(), MessageChannel.this, false));
     }
 
     /**
