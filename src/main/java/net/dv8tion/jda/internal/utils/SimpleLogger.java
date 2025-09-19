@@ -237,21 +237,21 @@ class SimpleLogger extends MarkerIgnoringBase {
 
         // Append a readable representation of the log level
         switch (level) {
-            case LOG_LEVEL_TRACE:
-                buf.append("TRACE");
-                break;
-            case LOG_LEVEL_DEBUG:
-                buf.append("DEBUG");
-                break;
-            case LOG_LEVEL_INFO:
-                buf.append("INFO");
-                break;
-            case LOG_LEVEL_WARN:
-                buf.append(WARN_LEVEL_STRING);
-                break;
-            case LOG_LEVEL_ERROR:
-                buf.append("ERROR");
-                break;
+        case LOG_LEVEL_TRACE:
+            buf.append("TRACE");
+            break;
+        case LOG_LEVEL_DEBUG:
+            buf.append("DEBUG");
+            break;
+        case LOG_LEVEL_INFO:
+            buf.append("INFO");
+            break;
+        case LOG_LEVEL_WARN:
+            buf.append(WARN_LEVEL_STRING);
+            break;
+        case LOG_LEVEL_ERROR:
+            buf.append("ERROR");
+            break;
         }
         if (LEVEL_IN_BRACKETS)
             buf.append(']');
