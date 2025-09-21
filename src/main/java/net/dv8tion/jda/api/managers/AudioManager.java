@@ -24,6 +24,8 @@ import net.dv8tion.jda.api.audio.SpeakingMode;
 import net.dv8tion.jda.api.audio.hooks.ConnectionListener;
 import net.dv8tion.jda.api.audio.hooks.ConnectionStatus;
 import net.dv8tion.jda.api.entities.AudioChannel;
+import net.dv8tion.jda.api.entities.channel.unions.AudioChannelUnion;
+import net.dv8tion.jda.api.entities.VoiceChannel;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.internal.utils.Checks;
 import net.dv8tion.jda.internal.utils.JDALogger;
@@ -35,10 +37,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 
-
 /**
  * AudioManager deals with creating, managing and severing audio connections to
- * {@link net.dv8tion.jda.api.entities.VoiceChannel VoiceChannels}. Also controls audio handlers.
+ * {@link VoiceChannel VoiceChannels}. Also controls audio handlers.
  *
  * @see Guild#getAudioManager()
  */
@@ -70,7 +71,7 @@ public interface AudioManager
      *         <ul>
      *             <li>If the currently logged in account does not have the Permission {@link net.dv8tion.jda.api.Permission#VOICE_CONNECT VOICE_CONNECT}</li>
      *             <li>If the currently logged in account does not have the Permission {@link net.dv8tion.jda.api.Permission#VOICE_MOVE_OTHERS VOICE_MOVE_OTHERS}
-     *                 and the {@link net.dv8tion.jda.api.entities.VoiceChannel#getUserLimit() user limit} has been exceeded!</li>
+     *                 and the {@link VoiceChannel#getUserLimit() user limit} has been exceeded!</li>
      *         </ul>
      */
     void openAudioConnection(AudioChannel channel);
@@ -140,25 +141,6 @@ public interface AudioManager
     EnumSet<SpeakingMode> getSpeakingMode();
 
     /**
-     * Configures the delay between the last provided frame and removing the speaking indicator.
-     * <br>This can be useful for send systems that buffer a certain interval of audio frames that will be sent.
-     * By default the delay is 200 milliseconds which is also the minimum delay.
-     *
-     * <p>If the delay is less than 200 milliseconds it will use the minimum delay. The provided delay
-     * will be aligned to the audio frame length of 20 milliseconds by means of integer division. This means
-     * it will be rounded down to the next biggest multiple of 20.
-     *
-     * <p>Note that this delay is not reliable and operates entirely based on the send system polling times
-     * which can cause it to be released earlier or later than the provided delay specifies.
-     *
-     * @param millis
-     *        The delay that should be used, in milliseconds
-     *
-     * @since 4.0.0
-     */
-    void setSpeakingDelay(int millis);
-
-    /**
      * Gets the {@link net.dv8tion.jda.api.JDA JDA} instance that this AudioManager is a part of.
      *
      * @return The corresponding JDA instance
@@ -175,15 +157,13 @@ public interface AudioManager
     Guild getGuild();
 
     /**
-     * The {@link net.dv8tion.jda.api.entities.AudioChannel AudioChannel} that JDA currently has an audio connection
-     * to. If JDA currently doesn't have an audio connection to an {@link net.dv8tion.jda.api.entities.AudioChannel AudioChannel}
-     * this will return {@code null}.
+     * The {@link AudioChannelUnion} that JDA currently has an audio connection to.
+     * <br>If JDA currently doesn't have an active audio connection, this will return {@code null}.
      *
-     * @return The {@link net.dv8tion.jda.api.entities.AudioChannel AudioChannel} the audio connection is connected to
-     *         or {@code null} if not connected.
+     * @return The {@link AudioChannelUnion} the audio connection is connected to, or {@code null} if not connected.
      */
     @Nullable
-    AudioChannel getConnectedChannel();
+    AudioChannelUnion getConnectedChannel();
 
     /**
      * This can be used to find out if JDA currently has an active audio connection with a

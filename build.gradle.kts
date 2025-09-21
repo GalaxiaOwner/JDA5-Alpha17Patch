@@ -126,6 +126,9 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-core:2.13.2")
     implementation("com.fasterxml.jackson.core:jackson-databind:2.13.2.2")
 
+    //Audio crypto libraries
+    implementation(libs.tink)
+
     //Sets the dependencies for the examples
     configurations["examplesImplementation"].withDependencies {
         addAll(configurations["api"].allDependencies)
@@ -294,6 +297,10 @@ javadoc.apply {
 
     //voice crypto
     exclude("com/iwebpp/crypto")
+    exclude("com/google/crypto/tink/**") // ~2 MB
+    exclude("com/google/gson/**") // ~300 KB
+    exclude("com/google/protobuf/**") // ~2 MB
+    exclude("google/protobuf/**")
 }
 
 build.apply {

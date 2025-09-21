@@ -22,9 +22,10 @@ import net.dv8tion.jda.api.audio.SpeakingMode;
 import net.dv8tion.jda.api.audio.hooks.ConnectionListener;
 import net.dv8tion.jda.api.audio.hooks.ConnectionStatus;
 import net.dv8tion.jda.api.audio.hooks.ListenerProxy;
-import net.dv8tion.jda.api.entities.AudioChannel;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.VoiceChannel;
+import net.dv8tion.jda.api.entities.AudioChannel;
+import net.dv8tion.jda.api.entities.channel.unions.AudioChannelUnion;
 import net.dv8tion.jda.api.exceptions.InsufficientPermissionException;
 import net.dv8tion.jda.api.managers.AudioManager;
 import net.dv8tion.jda.api.utils.MiscUtil;
@@ -57,7 +58,6 @@ public class AudioManagerImpl implements AudioManager
     protected boolean selfDeafened = false;
 
     protected long timeout = DEFAULT_CONNECTION_TIMEOUT;
-    protected int speakingDelay = 0;
 
     public AudioManagerImpl(GuildImpl guild)
     {
@@ -74,8 +74,6 @@ public class AudioManagerImpl implements AudioManager
     {
         Checks.notNull(channel, "Provided AudioChannel");
 
-//        if (!AUDIO_SUPPORTED)
-//            throw new UnsupportedOperationException("Sorry! Audio is disabled due to an internal JDA error! Contact Dev!");
         if (!getGuild().equals(channel.getGuild()))
             throw new IllegalArgumentException("The provided AudioChannel is not a part of the Guild that this AudioManager handles." +
                     "Please provide a AudioChannel from the proper Guild");
@@ -111,10 +109,10 @@ public class AudioManagerImpl implements AudioManager
             // VOICE_MOVE_OTHERS allows access because you would be able to move people out to
             // open up a slot anyway
             if (userLimit <= channel.getMembers().size()
-                && !perms.contains(Permission.VOICE_MOVE_OTHERS))
+                    && !perms.contains(Permission.VOICE_MOVE_OTHERS))
             {
                 throw new InsufficientPermissionException(channel, Permission.VOICE_MOVE_OTHERS,
-                    "Unable to connect to AudioChannel due to userlimit! Requires permission VOICE_MOVE_OTHERS to bypass");
+                        "Unable to connect to AudioChannel due to userlimit! Requires permission VOICE_MOVE_OTHERS to bypass");
             }
         }
     }
@@ -156,14 +154,6 @@ public class AudioManagerImpl implements AudioManager
         return EnumSet.copyOf(this.speakingModes);
     }
 
-    @Override
-    public void setSpeakingDelay(int millis)
-    {
-        this.speakingDelay = millis;
-        if (audioConnection != null)
-            audioConnection.setSpeakingDelay(millis);
-    }
-
     @Nonnull
     @Override
     public JDAImpl getJDA()
@@ -179,9 +169,9 @@ public class AudioManagerImpl implements AudioManager
     }
 
     @Override
-    public AudioChannel getConnectedChannel()
+    public AudioChannelUnion getConnectedChannel()
     {
-        return audioConnection == null ? null : audioConnection.getChannel();
+        return audioConnection == null ? null : (AudioChannelUnion) audioConnection.getChannel();
     }
 
     @Override
@@ -320,7 +310,6 @@ public class AudioManagerImpl implements AudioManager
         audioConnection.setReceivingHandler(receiveHandler);
         audioConnection.setQueueTimeout(queueTimeout);
         audioConnection.setSpeakingMode(speakingModes);
-        audioConnection.setSpeakingDelay(speakingDelay);
     }
 
     public void setConnectedChannel(AudioChannel channel)
