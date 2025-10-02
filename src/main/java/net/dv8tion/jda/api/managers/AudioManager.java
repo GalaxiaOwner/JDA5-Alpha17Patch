@@ -163,7 +163,7 @@ public interface AudioManager
      * @return The {@link AudioChannelUnion} the audio connection is connected to, or {@code null} if not connected.
      */
     @Nullable
-    AudioChannelUnion getConnectedChannel();
+    AudioChannel getConnectedChannel();
 
     /**
      * This can be used to find out if JDA currently has an active audio connection with a

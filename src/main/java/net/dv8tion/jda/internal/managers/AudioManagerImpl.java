@@ -169,9 +169,9 @@ public class AudioManagerImpl implements AudioManager
     }
 
     @Override
-    public AudioChannelUnion getConnectedChannel()
+    public AudioChannel getConnectedChannel()
     {
-        return audioConnection == null ? null : (AudioChannelUnion) audioConnection.getChannel();
+        return audioConnection == null ? null : audioConnection.getChannel();
     }
 
     @Override
