@@ -33,7 +33,7 @@ public enum AudioEncryption
 
     AudioEncryption()
     {
-        this.key = name().toLowerCase();
+        this.key = name().toLowerCase(Locale.ROOT);
     }
 
     public String getKey()
@@ -48,7 +48,7 @@ public enum AudioEncryption
         {
             try
             {
-                String name = String.valueOf(o).toUpperCase();
+                String name = String.valueOf(o).toUpperCase(Locale.ROOT);
                 AudioEncryption e = valueOf(name);
                 if (encryption == null || e.ordinal() < encryption.ordinal())
                     encryption = e;

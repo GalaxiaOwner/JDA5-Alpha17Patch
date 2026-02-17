@@ -22,7 +22,7 @@ import net.dv8tion.jda.api.AccountType;
 import net.dv8tion.jda.api.GatewayEncoding;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
-import net.dv8tion.jda.api.audio.factory.DefaultSendFactory;
+import net.dv8tion.jda.api.audio.AudioModuleConfig;
 import net.dv8tion.jda.api.audio.factory.IAudioSendFactory;
 import net.dv8tion.jda.api.audio.hooks.ConnectionStatus;
 import net.dv8tion.jda.api.entities.*;
@@ -126,10 +126,10 @@ public class JDAImpl implements JDA
     protected final ThreadingConfig threadConfig;
     protected final SessionConfig sessionConfig;
     protected final MetaConfig metaConfig;
+    protected final AudioModuleConfig audioModuleConfig;
 
     protected WebSocketClient client;
     protected Requester requester;
-    protected IAudioSendFactory audioSendFactory = new DefaultSendFactory();
     protected Status status = Status.INITIALIZING;
     protected SelfUser selfUser;
     protected ShardInfo shardInfo;
@@ -144,17 +144,18 @@ public class JDAImpl implements JDA
 
     public JDAImpl(AuthorizationConfig authConfig)
     {
-        this(authConfig, null, null, null);
+        this(authConfig, null, null, null, null);
     }
 
     public JDAImpl(
             AuthorizationConfig authConfig, SessionConfig sessionConfig,
-            ThreadingConfig threadConfig, MetaConfig metaConfig)
+            ThreadingConfig threadConfig, MetaConfig metaConfig, AudioModuleConfig audioModuleConfig)
     {
         this.authConfig = authConfig;
         this.threadConfig = threadConfig == null ? ThreadingConfig.getDefault() : threadConfig;
         this.sessionConfig = sessionConfig == null ? SessionConfig.getDefault() : sessionConfig;
         this.metaConfig = metaConfig == null ? MetaConfig.getDefault() : metaConfig;
+        this.audioModuleConfig = audioModuleConfig == null ? new AudioModuleConfig() : audioModuleConfig;
         this.shutdownHook = this.metaConfig.isUseShutdownHook() ? new Thread(this::shutdown, "JDA Shutdown Hook") : null;
         this.presence = new PresenceImpl(this);
         this.requester = new Requester(this);
@@ -395,9 +396,15 @@ public class JDAImpl implements JDA
         throw new LoginException("The provided token is invalid!");
     }
 
+    @Nonnull
     public AuthorizationConfig getAuthorizationConfig()
     {
         return authConfig;
+    }
+
+    @Nonnull
+    public AudioModuleConfig getAudioModuleConfig() {
+        return audioModuleConfig;
     }
 
     @Nonnull
@@ -1085,15 +1092,8 @@ public class JDAImpl implements JDA
         return entityBuilder;
     }
 
-    public IAudioSendFactory getAudioSendFactory()
-    {
-        return audioSendFactory;
-    }
-
-    public void setAudioSendFactory(IAudioSendFactory factory)
-    {
-        Checks.notNull(factory, "Provided IAudioSendFactory");
-        this.audioSendFactory = factory;
+    public IAudioSendFactory getAudioSendFactory() {
+        return audioModuleConfig.getAudioSendFactory();
     }
 
     public void setGatewayPing(long ping)

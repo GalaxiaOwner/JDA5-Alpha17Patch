@@ -19,6 +19,8 @@ package net.dv8tion.jda.internal.audio;
 import com.neovisionaries.ws.client.*;
 import net.dv8tion.jda.api.JDAInfo;
 import net.dv8tion.jda.api.audio.SpeakingMode;
+import net.dv8tion.jda.api.audio.dave.DaveProtocolCallbacks;
+import net.dv8tion.jda.api.audio.dave.DaveSession;
 import net.dv8tion.jda.api.audio.hooks.ConnectionListener;
 import net.dv8tion.jda.api.audio.hooks.ConnectionStatus;
 import net.dv8tion.jda.api.entities.AudioChannel;
@@ -48,8 +50,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-class AudioWebSocket extends WebSocketAdapter
-{
+import javax.annotation.Nonnull;
+
+class AudioWebSocket extends WebSocketAdapter implements DaveProtocolCallbacks {
+
     public static final Logger LOG = JDALogger.getLog(AudioWebSocket.class);
     public static final int DISCORD_SECRET_KEY_LENGTH = 32;
     private static final byte[] UDP_KEEP_ALIVE= { (byte) 0xC9, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -58,6 +62,7 @@ class AudioWebSocket extends WebSocketAdapter
     protected volatile CryptoAdapter crypto;
     protected WebSocket socket;
 
+    private DaveSession daveSession;
     private final AudioConnection audioConnection;
     private final ConnectionListener listener;
     private final ScheduledExecutorService keepAlivePool;
@@ -88,8 +93,7 @@ class AudioWebSocket extends WebSocketAdapter
         this.sessionId = sessionId;
         this.token = token;
         this.shouldReconnect = shouldReconnect;
-
-        keepAlivePool = getJDA().getAudioLifeCyclePool();
+        this.keepAlivePool = getJDA().getAudioLifeCyclePool();
 
         //Add the version query parameter
         String url = IOUtil.addQuery(endpoint, "v", JDAInfo.AUDIO_GATEWAY_VERSION);
@@ -103,6 +107,10 @@ class AudioWebSocket extends WebSocketAdapter
             throw new IllegalArgumentException("Cannot create a audio websocket connection using a null/empty sessionId!");
         if (token == null || token.isEmpty())
             throw new IllegalArgumentException("Cannot create a audio websocket connection using a null/empty token!");
+    }
+
+    void setDaveSession(DaveSession daveSession) {
+        this.daveSession = daveSession;
     }
 
     /* Used by AudioConnection */
@@ -168,6 +176,7 @@ class AudioWebSocket extends WebSocketAdapter
                 socket.sendClose();
 
             audioConnection.shutdown();
+            daveSession.destroy();
 
             AudioChannel disconnectedChannel = manager.getConnectedChannel();
             manager.setAudioConnection(null);
@@ -252,6 +261,81 @@ class AudioWebSocket extends WebSocketAdapter
     protected boolean isReady()
     {
         return ready;
+    }
+
+    /* Dave Protocol */
+
+    public DaveSession getDaveSession() {
+        return daveSession;
+    }
+
+    private void sendBinary(int opcode, ByteBuffer payload) {
+        ByteBuffer buffer =
+                ByteBuffer.allocate(1 + payload.remaining()).put((byte) opcode).put(payload);
+        buffer.flip();
+        socket.sendBinary(buffer.array());
+    }
+
+    @Override
+    public void onBinaryMessage(WebSocket websocket, byte[] binary) {
+        ByteBuffer message = ByteBuffer.allocateDirect(binary.length);
+        message.put(binary);
+        message.flip();
+
+        short sequence = message.getShort();
+        this.sequence = ((long) sequence) & 0xFFFF;
+        int opcode = ((int) message.get()) & 0xFF;
+
+        switch (opcode) {
+        case VoiceCode.MLS_EXTERNAL_SENDER: {
+            LOG.trace("-> MLS_EXTERNAL_SENDER");
+            daveSession.onDaveProtocolMLSExternalSenderPackage(message);
+            break;
+        }
+        case VoiceCode.MLS_PROPOSALS: {
+            LOG.trace("-> MLS_PROPOSALS");
+            daveSession.onMLSProposals(message);
+            break;
+        }
+        case VoiceCode.MLS_ANNOUNCE_COMMIT_TRANSITION: {
+            LOG.trace("-> MLS_ANNOUNCE_COMMIT_TRANSITION");
+            int transitionId = ((int) message.getShort()) & 0xFFFF;
+            daveSession.onMLSPrepareCommitTransition(transitionId, message);
+            break;
+        }
+        case VoiceCode.MLS_WELCOME: {
+            LOG.trace("-> MLS_WELCOME");
+            int transitionId = ((int) message.getShort()) & 0xFFFF;
+            daveSession.onMLSWelcome(transitionId, message);
+            break;
+        }
+        default:
+            LOG.trace("-> UNKNOWN OP {}", opcode);
+        }
+    }
+
+    @Override
+    public void sendMLSKeyPackage(@Nonnull ByteBuffer mlsKeyPackage) {
+        LOG.trace("<- MLS_KEY_PACKAGE");
+        sendBinary(VoiceCode.MLS_KEY_PACKAGE, mlsKeyPackage);
+    }
+
+    @Override
+    public void sendDaveProtocolReadyForTransition(int transitionId) {
+        LOG.trace("<- DAVE_TRANSITION_READY");
+        send(VoiceCode.DAVE_TRANSITION_READY, DataObject.empty().put("transition_id", transitionId));
+    }
+
+    @Override
+    public void sendMLSCommitWelcome(@Nonnull ByteBuffer commitWelcomeMessage) {
+        LOG.trace("<- MLS_COMMIT_WELCOME");
+        sendBinary(VoiceCode.MLS_COMMIT_WELCOME, commitWelcomeMessage);
+    }
+
+    @Override
+    public void sendMLSInvalidCommitWelcome(int transitionId) {
+        LOG.trace("<- MLS_INVALID_COMMIT_WELCOME");
+        send(VoiceCode.MLS_INVALID_COMMIT_WELCOME, DataObject.empty().put("transition_id", transitionId));
     }
 
     /* TCP Listeners */
@@ -391,24 +475,21 @@ class AudioWebSocket extends WebSocketAdapter
 
     /* Internals */
 
-    private void handleEvent(DataObject contentAll)
-    {
+    private void handleEvent(DataObject contentAll) {
         int opCode = contentAll.getInt("op");
         sequence = contentAll.getLong("seq", sequence);
 
-        switch(opCode)
-        {
-        case VoiceCode.HELLO:
-        {
+        switch (opCode) {
+        case VoiceCode.HELLO: {
             LOG.trace("-> HELLO {}", contentAll);
-            final DataObject payload = contentAll.getObject("d");
-            final int interval = payload.getInt("heartbeat_interval");
+            DataObject payload = contentAll.getObject("d");
+            int interval = payload.getInt("heartbeat_interval");
             stopKeepAlive();
             setupKeepAlive(interval);
+            daveSession.initialize();
             break;
         }
-        case VoiceCode.READY:
-        {
+        case VoiceCode.READY: {
             LOG.trace("-> READY {}", contentAll);
             DataObject content = contentAll.getObject("d");
             ssrc = content.getInt("ssrc");
@@ -416,45 +497,43 @@ class AudioWebSocket extends WebSocketAdapter
             String ip = content.getString("ip");
             DataArray modes = content.getArray("modes");
             encryption = CryptoAdapter.negotiate(AudioEncryption.fromArray(modes));
-            if (encryption == null)
-            {
+            if (encryption == null) {
                 close(ConnectionStatus.ERROR_UNSUPPORTED_ENCRYPTION_MODES);
                 LOG.error("None of the provided encryption modes are supported: {}", modes);
                 return;
-            }
-            else
-            {
+            } else {
                 LOG.debug("Using encryption mode " + encryption.getKey());
             }
 
-            //Find our external IP and Port using Discord
+            // Find our external IP and Port using Discord
             InetSocketAddress externalIpAndPort;
 
             changeStatus(ConnectionStatus.CONNECTING_ATTEMPTING_UDP_DISCOVERY);
             int tries = 0;
-            do
-            {
+            do {
                 externalIpAndPort = handleUdpDiscovery(new InetSocketAddress(ip, port), ssrc);
                 tries++;
-                if (externalIpAndPort == null && tries > 5)
-                {
+                if (externalIpAndPort == null && tries > 5) {
                     close(ConnectionStatus.ERROR_UDP_UNABLE_TO_CONNECT);
                     return;
                 }
             } while (externalIpAndPort == null);
 
-            final DataObject object = DataObject.empty()
+            daveSession.assignSsrcToCodec(DaveSession.Codec.OPUS, ssrc);
+
+            DataObject object = DataObject.empty()
                     .put("protocol", "udp")
-                    .put("data", DataObject.empty()
-                            .put("address", externalIpAndPort.getHostString())
-                            .put("port", externalIpAndPort.getPort())
-                            .put("mode", encryption.getKey())); //Discord requires encryption
+                    .put(
+                            "data",
+                            DataObject.empty()
+                                    .put("address", externalIpAndPort.getHostString())
+                                    .put("port", externalIpAndPort.getPort())
+                                    .put("mode", encryption.getKey())); // Discord requires encryption
             send(VoiceCode.SELECT_PROTOCOL, object);
             changeStatus(ConnectionStatus.CONNECTING_AWAITING_READY);
             break;
         }
-        case VoiceCode.RESUMED:
-        {
+        case VoiceCode.RESUMED: {
             LOG.trace("-> RESUMED {}", contentAll);
             LOG.debug("Successfully resumed session!");
             changeStatus(ConnectionStatus.CONNECTED);
@@ -462,22 +541,21 @@ class AudioWebSocket extends WebSocketAdapter
             MiscUtil.locked(audioConnection.readyLock, audioConnection.readyCondvar::signalAll);
             break;
         }
-        case VoiceCode.SESSION_DESCRIPTION:
-        {
+        case VoiceCode.SESSION_DESCRIPTION: {
             LOG.trace("-> SESSION_DESCRIPTION {}", contentAll);
-            send(VoiceCode.USER_SPEAKING_UPDATE, // required to receive audio?
-                    DataObject.empty()
-                            .put("delay", 0)
-                            .put("speaking", 0)
-                            .put("ssrc", ssrc));
-            //secret_key is an array of 32 ints that are less than 256, so they are bytes.
+            send(
+                    VoiceCode.USER_SPEAKING_UPDATE, // required to receive audio?
+                    DataObject.empty().put("delay", 0).put("speaking", 0).put("ssrc", ssrc));
+            // secret_key is an array of 32 ints that are less than 256, so they are bytes.
             DataArray keyArray = contentAll.getObject("d").getArray("secret_key");
 
             secretKey = new byte[DISCORD_SECRET_KEY_LENGTH];
-            for (int i = 0; i < keyArray.length(); i++)
+            for (int i = 0; i < keyArray.length(); i++) {
                 secretKey[i] = (byte) keyArray.getInt(i);
+            }
 
-            crypto = CryptoAdapter.getAdapter(encryption, secretKey);
+            crypto = new DaveCryptoAdapter(CryptoAdapter.getAdapter(encryption, secretKey), daveSession, ssrc);
+            daveSession.onSelectProtocolAck(contentAll.getObject("d").getInt("dave_protocol_version"));
 
             LOG.debug("Audio connection has finished connecting!");
             ready = true;
@@ -485,72 +563,100 @@ class AudioWebSocket extends WebSocketAdapter
             changeStatus(ConnectionStatus.CONNECTED);
             break;
         }
-        case VoiceCode.HEARTBEAT:
-        {
+        case VoiceCode.HEARTBEAT: {
             LOG.trace("-> HEARTBEAT {}", contentAll);
             send(VoiceCode.HEARTBEAT, System.currentTimeMillis());
             break;
         }
-        case VoiceCode.HEARTBEAT_ACK:
-        {
+        case VoiceCode.HEARTBEAT_ACK: {
             LOG.trace("-> HEARTBEAT_ACK {}", contentAll);
-            final long ping = System.currentTimeMillis() - contentAll.getObject("d").getLong("t");
+            long ping =
+                    System.currentTimeMillis() - contentAll.getObject("d").getLong("t");
             listener.onPing(ping);
             break;
         }
-        case VoiceCode.USER_SPEAKING_UPDATE:
-        {
+        case VoiceCode.USER_SPEAKING_UPDATE: {
             LOG.trace("-> USER_SPEAKING_UPDATE {}", contentAll);
-            final DataObject content = contentAll.getObject("d");
-            final EnumSet<SpeakingMode> speaking = SpeakingMode.getModes(content.getInt("speaking"));
-            final int ssrc = content.getInt("ssrc");
-            final long userId = content.getLong("user_id");
+            DataObject content = contentAll.getObject("d");
+            int ssrc = content.getInt("ssrc");
+            long userId = content.getUnsignedLong("user_id");
+            audioConnection.updateUserSSRC(ssrc, userId);
+            daveSession.addUser(userId);
 
-            final User user = getUser(userId);
-
-            if (user == null)
-            {
-                //more relevant for audio connection
+            EnumSet<SpeakingMode> speaking = SpeakingMode.getModes(content.getInt("speaking"));
+            User user = getUser(userId);
+            if (user == null) {
+                // more relevant for audio connection
                 LOG.trace("Got an Audio USER_SPEAKING_UPDATE for a non-existent User. JSON: {}", contentAll);
                 listener.onUserSpeakingModeUpdate(UserSnowflake.fromId(userId), speaking);
-            }
-            else
-            {
+            } else {
                 listener.onUserSpeakingModeUpdate((UserSnowflake) user, speaking);
             }
 
-            audioConnection.updateUserSSRC(ssrc, userId);
-
             break;
         }
-        case VoiceCode.USER_DISCONNECT:
-        {
+        case VoiceCode.USER_BULK_CONNECT: {
+            LOG.trace("-> USER_BULK_CONNECT {}", contentAll);
+            DataObject payload = contentAll.getObject("d");
+            DataArray userIds = payload.getArray("user_ids");
+            for (int i = 0; i < userIds.length(); i++) {
+                long userId = userIds.getUnsignedLong(i);
+                daveSession.addUser(userId);
+            }
+            break;
+        }
+        case VoiceCode.USER_DISCONNECT: {
             LOG.trace("-> USER_DISCONNECT {}", contentAll);
-            final DataObject payload = contentAll.getObject("d");
-            final long userId = payload.getLong("user_id");
+            DataObject payload = contentAll.getObject("d");
+            long userId = payload.getUnsignedLong("user_id");
             audioConnection.removeUserSSRC(userId);
+            daveSession.removeUser(userId);
             break;
         }
-        case 12:
-        case 14:
-        {
-            LOG.trace("-> OP {} {}", opCode, contentAll);
-            // ignore op 12 and 14 for now
+        case VoiceCode.DAVE_PREPARE_TRANSITION: {
+            LOG.trace("-> DAVE_PREPARE_TRANSITION {}", contentAll);
+            DataObject payload = contentAll.getObject("d");
+            daveSession.onDaveProtocolPrepareTransition(
+                    payload.getInt("transition_id"), payload.getInt("protocol_version"));
             break;
         }
-        default:
-            LOG.debug("Unknown Audio OP code.\n{}", contentAll);
+        case VoiceCode.DAVE_EXECUTE_TRANSITION: {
+            LOG.trace("-> DAVE_EXECUTE_TRANSITION {}", contentAll);
+            DataObject payload = contentAll.getObject("d");
+            daveSession.onDaveProtocolExecuteTransition(payload.getInt("transition_id"));
+            break;
+        }
+        case VoiceCode.DAVE_PREPARE_EPOCH: {
+            LOG.trace("-> DAVE_PREPARE_EPOCH {}", contentAll);
+            DataObject payload = contentAll.getObject("d");
+            daveSession.onDaveProtocolPrepareEpoch(
+                    payload.getUnsignedLong("epoch"), payload.getInt("protocol_version"));
+            break;
+        }
+
+        default: {
+            LOG.trace("-> UNKNOWN OP {}: {}", opCode, contentAll);
+            // undocumented / unused
+            break;
+        }
         }
     }
 
-    private void identify()
-    {
+    private void identify() {
         sequence = 0;
+        int maxDaveProtocolVersion = daveSession.getMaxProtocolVersion();
+        if (maxDaveProtocolVersion == 0) {
+            LOG.warn("Maximum Dave Protocol Version is 0. "
+                    + "This means your connection does not properly support encryption. "
+                    + "This will fail to work in the future.");
+        }
+
         DataObject connectObj = DataObject.empty()
                 .put("server_id", guild.getId())
                 .put("user_id", getJDA().getSelfUser().getId())
                 .put("session_id", sessionId)
-                .put("token", token);
+                .put("token", token)
+                .put("max_dave_protocol_version", maxDaveProtocolVersion);
         send(VoiceCode.IDENTIFY, connectObj);
     }
 

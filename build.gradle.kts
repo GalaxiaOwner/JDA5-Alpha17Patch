@@ -26,7 +26,7 @@ import io.codearte.gradle.nexus.NexusStagingExtension
 import org.apache.tools.ant.filters.ReplaceTokens
 import java.time.Duration
 
-// Don't remove this, its needed for reasons....
+// Don't remove this, It's needed for reasons....
 typealias Pom = org.gradle.api.publish.maven.MavenPom
 
 plugins {

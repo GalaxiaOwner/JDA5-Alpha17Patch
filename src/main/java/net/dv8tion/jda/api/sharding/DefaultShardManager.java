@@ -34,6 +34,7 @@ import net.dv8tion.jda.internal.requests.Route;
 import net.dv8tion.jda.internal.utils.Checks;
 import net.dv8tion.jda.internal.utils.JDALogger;
 import net.dv8tion.jda.internal.utils.UnlockHook;
+import net.dv8tion.jda.api.audio.AudioModuleConfig;
 import net.dv8tion.jda.internal.utils.cache.ShardCacheViewImpl;
 import net.dv8tion.jda.internal.utils.config.AuthorizationConfig;
 import net.dv8tion.jda.internal.utils.config.MetaConfig;
@@ -96,6 +97,9 @@ public class DefaultShardManager implements ShardManager
      */
     protected final Thread shutdownHook;
 
+    @Nullable
+    protected final AudioModuleConfig audioModuleConfig;
+
     /**
      * The token of the account associated with this ShardManager.
      */
@@ -153,7 +157,7 @@ public class DefaultShardManager implements ShardManager
 
     public DefaultShardManager(@Nonnull String token, @Nullable Collection<Integer> shardIds)
     {
-        this(token, shardIds, null, null, null, null, null, null, null);
+        this(token, shardIds, null, null, null, null, null, null, null, null);
     }
 
     public DefaultShardManager(
@@ -161,6 +165,7 @@ public class DefaultShardManager implements ShardManager
         @Nullable ShardingConfig shardingConfig, @Nullable EventConfig eventConfig,
         @Nullable PresenceProviderConfig presenceConfig, @Nullable ThreadingProviderConfig threadingConfig,
         @Nullable ShardingSessionConfig sessionConfig, @Nullable ShardingMetaConfig metaConfig,
+        @Nullable AudioModuleConfig audioModuleConfig,
         @Nullable ChunkingFilter chunkingFilter)
     {
         this.token = token;
@@ -171,6 +176,7 @@ public class DefaultShardManager implements ShardManager
         this.presenceConfig = presenceConfig == null ? PresenceProviderConfig.getDefault() : presenceConfig;
         this.metaConfig = metaConfig == null ? ShardingMetaConfig.getDefault() : metaConfig;
         this.chunkingFilter = chunkingFilter == null ? ChunkingFilter.ALL : chunkingFilter;
+        this.audioModuleConfig = audioModuleConfig;
         this.executor = createExecutor(this.threadingConfig.getThreadFactory());
         this.shutdownHook = this.metaConfig.isUseShutdownHook() ? new Thread(this::shutdown, "JDA Shutdown Hook") : null;
 
@@ -512,7 +518,7 @@ public class DefaultShardManager implements ShardManager
         threadingConfig.setEventPool(eventPool, shutdownEventPool);
         threadingConfig.setAudioPool(audioPool, shutdownAudioPool);
         MetaConfig metaConfig = new MetaConfig(this.metaConfig.getMaxBufferSize(), this.metaConfig.getContextMap(shardId), this.metaConfig.getCacheFlags(), this.sessionConfig.getFlags());
-        final JDAImpl jda = new JDAImpl(authConfig, sessionConfig, threadingConfig, metaConfig);
+        final JDAImpl jda = new JDAImpl(authConfig, sessionConfig, threadingConfig, metaConfig, audioModuleConfig);
         jda.setMemberCachePolicy(shardingConfig.getMemberCachePolicy());
         threadingConfig.init(jda::getIdentifierString);
         // We can only do member chunking with the GUILD_MEMBERS intent
@@ -525,9 +531,6 @@ public class DefaultShardManager implements ShardManager
 
         if (eventConfig.getEventManagerProvider() != null)
             jda.setEventManager(this.eventConfig.getEventManagerProvider().apply(shardId));
-
-        if (this.sessionConfig.getAudioSendFactory() != null)
-            jda.setAudioSendFactory(this.sessionConfig.getAudioSendFactory());
 
         this.eventConfig.getListeners().forEach(jda::addEventListener);
         this.eventConfig.getListenerProviders().forEach(provider -> jda.addEventListener(provider.apply(shardId)));
