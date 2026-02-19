@@ -32,15 +32,6 @@ import javax.annotation.Nonnull;
  *
  * <p>This config is immutable, any updates to the config return a new config instance.
  *
- * <p><b>Example</b>
- * {@snippet lang="java":
- * jdaBuilder.setAudioModuleConfig(
- *   new AudioModuleConfig()
- *     .withAudioSendFactory(new NativeAudioSendFactory())
- *     .withDaveSessionFactory(new JDaveSessionFactory())
- * )
- * }
- *
  * @see #withAudioSendFactory(IAudioSendFactory)
  * @see #withDaveSessionFactory(DaveSessionFactory)
  */
