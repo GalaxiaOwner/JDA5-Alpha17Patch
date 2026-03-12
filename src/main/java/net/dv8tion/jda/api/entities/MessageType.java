@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package net.dv8tion.jda.api.entities;
+
+import net.dv8tion.jda.api.entities.StageChannel;
 
 import javax.annotation.Nonnull;
 
@@ -21,8 +24,7 @@ import javax.annotation.Nonnull;
  * Represents the different types of {@link net.dv8tion.jda.api.entities.Message Messages} that can be received from Discord.
  * <br>A normal text based message is {@link #DEFAULT}.
  */
-public enum MessageType
-{
+public enum MessageType {
     /**
      * The normal text messages received when a user or bot sends a Message.
      */
@@ -94,22 +96,22 @@ public enum MessageType
     /**
      * System message related to discovery qualifications.
      */
-    GUILD_DISCOVERY_DISQUALIFIED(14, true, false),
+    GUILD_DISCOVERY_DISQUALIFIED(14, true, true),
 
     /**
      * System message related to discovery qualifications.
      */
-    GUILD_DISCOVERY_REQUALIFIED(15, true, false),
+    GUILD_DISCOVERY_REQUALIFIED(15, true, true),
 
     /**
      * System message related to discovery qualifications.
      */
-    GUILD_DISCOVERY_GRACE_PERIOD_INITIAL_WARNING(16, true, false),
+    GUILD_DISCOVERY_GRACE_PERIOD_INITIAL_WARNING(16, true, true),
 
     /**
      * System message related to discovery qualifications.
      */
-    GUILD_DISCOVERY_GRACE_PERIOD_FINAL_WARNING(17, true, false),
+    GUILD_DISCOVERY_GRACE_PERIOD_FINAL_WARNING(17, true, true),
 
     /**
      * This is sent to a TextChannel when a message thread is created if the message from which the thread was started is "old".
@@ -146,9 +148,94 @@ public enum MessageType
     /**
      * This message was created by the automod system.
      *
-     * Messages from this type usually come with custom embeds containing relevant information, the author is the user that triggered the filter.
+     * <p>Messages from this type usually come with custom embeds containing relevant information, the author is the user that triggered the filter.
      */
     AUTO_MODERATION_ACTION(24, true, true),
+
+    /**
+     * Sent by a bot when a command is restricted to premium users.
+     * <br>Contains a button which allows to upgrade to premium.
+     */
+    INTERACTION_PREMIUM_UPSELL(26, true, true),
+
+    /**
+     * Messages created in {@link StageChannel StageChannels} to indicate that a stage instance has started.
+     * <br>The message content will be the {@link StageInstance#getTopic() topic} and the author is the user who started the stage instance.
+     */
+    STAGE_START(27, true, true),
+
+    /**
+     * Messages created in {@link StageChannel StageChannels} to indicate that a stage instance has ended.
+     * <br>The message content will be the {@link StageInstance#getTopic() topic} and the author is the user who ended the stage instance.
+     */
+    STAGE_END(28, true, true),
+
+    /**
+     * Messages created in {@link StageChannel StageChannels} to indicate that a new {@link StageInstance#getSpeakers() speaker} is up.
+     * <br>The author is the user who became speaker.
+     */
+    STAGE_SPEAKER(29, true, true),
+
+    /**
+     * Messages created in {@link StageChannel StageChannels} to indicate that a stage instance topic has been changed.
+     * <br>The message content will be the new {@link StageInstance#getTopic() topic} and the author is the user who updated the topic.
+     */
+    STAGE_TOPIC(31, true, true),
+
+    /**
+     * Sent to the {@link Guild#getSystemChannel() system channel} when a guild administrator subscribes to the premium plan of an application.
+     */
+    GUILD_APPLICATION_PREMIUM_SUBSCRIPTION(32, true, true),
+
+    //    /**
+    //     * Sent when an application is added as integration to a private channel or group channel.
+    //     */
+    //    PRIVATE_CHANNEL_INTEGRATION_ADDED(33, true, true),
+    //
+    //    /**
+    //     * Sent when an application integration is removed from a private channel or group
+    // channel.
+    //     */
+    //    PRIVATE_CHANNEL_INTEGRATION_REMOVED(34, true, true),
+
+    //    /**
+    //     * Unclear what this is for or if its used at all
+    //     */
+    //    PREMIUM_REFERRAL(35, true, true),
+
+    /**
+     * Sent when a moderator activates a temporary security measure, such as pausing invites or direct messages.
+     * <br>The message content is an ISO 8601 timestamp, which indicates when the action expires and disables the security measures automatically.
+     *
+     * @see java.time.OffsetDateTime#parse(CharSequence)
+     */
+    GUILD_INCIDENT_ALERT_MODE_ENABLED(36, true, true),
+
+    /**
+     * Sent when a moderator deactivates a temporary security measure, such as pausing invites or direct messages.
+     */
+    GUILD_INCIDENT_ALERT_MODE_DISABLED(37, true, true),
+
+    /**
+     * Sent when a moderator reports a raid in a guild.
+     * <br>The message author is the reporter.
+     */
+    GUILD_INCIDENT_REPORT_RAID(38, true, true),
+
+    /**
+     * Sent when a moderator reports a raid as a false alarm in a guild.
+     */
+    GUILD_INCIDENT_REPORT_FALSE_ALARM(39, true, true),
+
+    /**
+     * Sent when a user purchases a product sold in a guild
+     */
+    PURCHASE_NOTIFICATION(44, true, true),
+
+    /**
+     * Sent when a poll completed in the channel.
+     */
+    POLL_RESULT(46, true, true),
 
     /**
      * Unknown MessageType.
@@ -159,8 +246,7 @@ public enum MessageType
     private final boolean system;
     private final boolean deletable;
 
-    MessageType(int id, boolean system, boolean deletable)
-    {
+    MessageType(int id, boolean system, boolean deletable) {
         this.id = id;
         this.system = system;
         this.deletable = deletable;
@@ -171,8 +257,7 @@ public enum MessageType
      *
      * @return the Discord id key.
      */
-    public int getId()
-    {
+    public int getId() {
         return id;
     }
 
@@ -183,8 +268,7 @@ public enum MessageType
      *
      * @return True, if this type is for a system message
      */
-    public boolean isSystem()
-    {
+    public boolean isSystem() {
         return system;
     }
 
@@ -205,12 +289,12 @@ public enum MessageType
      *     <li>{@link #GUILD_DISCOVERY_GRACE_PERIOD_FINAL_WARNING}</li>
      *     <li>{@link #GUILD_DISCOVERY_GRACE_PERIOD_FINAL_WARNING}</li>
      *     <li>{@link #THREAD_STARTER_MESSAGE}</li>
+     *     <li>{@link #GUILD_APPLICATION_PREMIUM_SUBSCRIPTION}</li>
      * </ul>
      *
      * @return True, if delete is supported
      */
-    public boolean canDelete()
-    {
+    public boolean canDelete() {
         return deletable;
     }
 
@@ -224,12 +308,11 @@ public enum MessageType
      * @return A MessageType with the same Discord id key as the one provided, or {@link #UNKNOWN}.
      */
     @Nonnull
-    public static MessageType fromId(int id)
-    {
-        for (MessageType type : values())
-        {
-            if (type.id == id)
+    public static MessageType fromId(int id) {
+        for (MessageType type : values()) {
+            if (type.id == id) {
                 return type;
+            }
         }
         return UNKNOWN;
     }
